@@ -1,3 +1,6 @@
+# Ai-knowledge-assistant
+ai pdf question answer solution
+
 🤖 AI Knowledge Assistant
 
 An intelligent AI-powered assistant designed to answer questions, provide explanations, and help users quickly access structured knowledge in a simple and interactive way.
