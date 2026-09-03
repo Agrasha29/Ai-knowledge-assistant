@@ -1,56 +1,46 @@
 import os
-import tempfile
+import io
 import PyPDF2
-
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from openai import OpenAI
 
-
 # -----------------------------
-# Groq API Client
+# Groq API Client Setup
 # -----------------------------
 client = OpenAI(
     api_key=os.getenv("GROQ_API_KEY"),
-    base_url="https://api.groq.com/openai/v1",
+    base_url="https://api.groq.com/openai/v1"
 )
 
-
 # -----------------------------
-# Flask Setup
+# Flask App Setup
 # -----------------------------
 app = Flask(__name__)
 CORS(app)
 
-
 # -----------------------------
-# Extract text from PDF
+# PDF Processing (In-Memory)
 # -----------------------------
-def extract_text_from_pdf(filepath):
+def extract_text_from_pdf_stream(file_bytes):
     text = ""
-
-    with open(filepath, "rb") as file:
-        reader = PyPDF2.PdfReader(file)
-
+    try:
+        # Load directly from RAM buffer without disk write permissions
+        pdf_stream = io.BytesIO(file_bytes)
+        reader = PyPDF2.PdfReader(pdf_stream)
         for i, page in enumerate(reader.pages):
-            try:
-                page_text = page.extract_text()
-
-                if page_text:
-                    text += page_text + "\n"
-
-            except Exception as e:
-                print(f"Warning: failed to extract page {i}: {e}")
-
+            page_text = page.extract_text()
+            if page_text:
+                text += page_text + "\n"
+    except Exception as e:
+        print(f"Error parsing PDF memory stream: {e}")
     return text
 
-
 # -----------------------------
-# Upload PDF + Ask Question
+# Upload PDF + Ask Question Endpoint
 # -----------------------------
 @app.route("/api/upload_and_ask", methods=["POST"])
 def upload_and_ask():
-
     if "file" not in request.files:
         return jsonify({"error": "No file uploaded"}), 400
 
@@ -65,41 +55,35 @@ def upload_and_ask():
         return jsonify({"error": "Question is required"}), 400
 
     try:
-        # Create temporary PDF file
-        with tempfile.NamedTemporaryFile(
-            delete=False,
-            suffix=".pdf"
-        ) as temp_file:
+        # Extract PDF text entirely in memory
+        file_bytes = file.read()
+        text = extract_text_from_pdf_stream(file_bytes)
 
-            file.save(temp_file.name)
-            filepath = temp_file.name
+        if not text.strip():
+            return jsonify({"error": "Could not extract text from the provided PDF."}), 400
 
-        # Extract PDF text
-        text = extract_text_from_pdf(filepath)
-
-        # Delete temporary file
-        os.remove(filepath)
-
-        # Ask Groq AI
-        response = client.responses.create(
-            model="openai/gpt-oss-20b",
-            input=f"Document:\n{text}\n\nQuestion: {question}",
-            max_output_tokens=300,
+        # Query Groq API via standard OpenAI Chat Completions SDK
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {
+                    "role": "system",
+                    "content": f"You are a helpful AI assistant. Use the following PDF content to answer the user question:\n\n{text}"
+                },
+                {
+                    "role": "user",
+                    "content": question
+                }
+            ],
+            max_tokens=300
         )
 
-        answer = response.output_text.strip()
-
+        answer = response.choices[0].message.content.strip()
         return jsonify({"answer": answer})
 
     except Exception as e:
+        print("Serverless Invocation Error:", e)
+        return jsonify({"error": str(e)}), 500
 
-        print("Error:", e)
-
-        return jsonify({
-            "error": str(e)
-        }), 500
-
-
-# Vercel uses this Flask app
 if __name__ == "__main__":
     app.run()
