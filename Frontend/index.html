@@ -165,7 +165,7 @@ async function uploadAndAsk() {
 
     document.getElementById('answer').innerText = "Processing...";
 
-    const response = await fetch("/upload_and_ask", {
+    const response = await fetch("/api/upload_and_ask", {
         method: "POST",
         body: formData
     });
