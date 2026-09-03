@@ -6,7 +6,6 @@
 <title>DocBot AI</title>
 
 <style>
-
 body {
     margin: 0;
     font-family: Arial, sans-serif;
@@ -40,6 +39,7 @@ input[type="text"] {
     border: none;
     outline: none;
     background: #ffffff;
+    box-sizing: border-box;
 }
 
 /* Button */
@@ -68,6 +68,8 @@ pre {
     text-align: left;
     max-height: 150px;
     overflow-y: auto;
+    white-space: pre-wrap;
+    word-wrap: break-word;
 }
 
 /* Floating pastel circles */
@@ -78,37 +80,10 @@ pre {
     animation: float 12s infinite ease-in-out;
 }
 
-.circle:nth-child(1){
-    width:120px;
-    height:120px;
-    background:#ffd6e0;
-    top:10%;
-    left:10%;
-}
-
-.circle:nth-child(2){
-    width:150px;
-    height:150px;
-    background:#d6f5ff;
-    bottom:15%;
-    right:15%;
-}
-
-.circle:nth-child(3){
-    width:90px;
-    height:90px;
-    background:#e6d6ff;
-    bottom:40%;
-    left:25%;
-}
-
-.circle:nth-child(4){
-    width:110px;
-    height:110px;
-    background:#fff0d6;
-    top:30%;
-    right:25%;
-}
+.circle:nth-child(1){ width:120px; height:120px; background:#ffd6e0; top:10%; left:10%; }
+.circle:nth-child(2){ width:150px; height:150px; background:#d6f5ff; bottom:15%; right:15%; }
+.circle:nth-child(3){ width:90px; height:90px; background:#e6d6ff; bottom:40%; left:25%; }
+.circle:nth-child(4){ width:110px; height:110px; background:#fff0d6; top:30%; right:25%; }
 
 @keyframes float {
     0% { transform: translateY(0px); }
@@ -116,12 +91,8 @@ pre {
     100% { transform: translateY(0px); }
 }
 
-h2{
-    margin-top:0;
-}
-
+h2 { margin-top:0; }
 </style>
-
 </head>
 
 <body>
@@ -135,7 +106,7 @@ h2{
     <h2>📄 DocBot AI</h2>
     <p>Upload PDF & Ask Questions</p>
 
-    <input type="file" id="file">
+    <input type="file" id="file" accept=".pdf">
     <input type="text" id="question" placeholder="Type your question here">
 
     <button onclick="uploadAndAsk()">Ask</button>
@@ -148,13 +119,14 @@ h2{
 async function uploadAndAsk() {
     const fileInput = document.getElementById('file');
     const question = document.getElementById('question').value;
+    const answerContainer = document.getElementById('answer');
 
-    if(fileInput.files.length === 0) {
+    if (fileInput.files.length === 0) {
         alert("Please select a PDF file!");
         return;
     }
 
-    if(!question) {
+    if (!question.trim()) {
         alert("Please type a question!");
         return;
     }
@@ -163,15 +135,24 @@ async function uploadAndAsk() {
     formData.append("file", fileInput.files[0]);
     formData.append("question", question);
 
-    document.getElementById('answer').innerText = "Processing...";
+    answerContainer.innerText = "Processing...";
 
-    const response = await fetch("/api/upload_and_ask", {
-        method: "POST",
-        body: formData
-    });
+    try {
+        const response = await fetch("/api/upload_and_ask", {
+            method: "POST",
+            body: formData
+        });
 
-    const data = await response.json();
-    document.getElementById('answer').innerText = data.answer || data.error;
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Server returned status ${response.status}: ${errorText}`);
+        }
+
+        const data = await response.json();
+        answerContainer.innerText = data.answer || data.error || "No answer received.";
+    } catch (err) {
+        answerContainer.innerText = "Error: " + err.message;
+    }
 }
 </script>
 
