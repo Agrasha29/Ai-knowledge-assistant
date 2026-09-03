@@ -8,18 +8,12 @@ from openai import OpenAI
 app = Flask(__name__)
 CORS(app)
 
-# Fetch key from environment or use dummy key to prevent top-level import crash
-groq_key = os.getenv("GROQ_API_KEY") or "dummy_key_for_initialization"
-
-client = OpenAI(
-    api_key=groq_key,
-    base_url="https://api.groq.com/openai/v1"
-)
-
+# Support both /api/upload_and_ask and /upload_and_ask routes
 @app.route("/api/upload_and_ask", methods=["POST"])
+@app.route("/upload_and_ask", methods=["POST"])
 def upload_and_ask():
-    # Verify the real key exists at runtime
-    if not os.getenv("GROQ_API_KEY"):
+    groq_api_key = os.getenv("GROQ_API_KEY")
+    if not groq_api_key:
         return jsonify({
             "error": "GROQ_API_KEY environment variable is not configured on Vercel."
         }), 500
@@ -30,7 +24,16 @@ def upload_and_ask():
     file = request.files["file"]
     question = request.form.get("question", "")
 
+    if not question.strip():
+        return jsonify({"error": "Question is required"}), 400
+
     try:
+        # Initialize client cleanly within request lifecycle
+        client = OpenAI(
+            api_key=groq_api_key,
+            base_url="https://api.groq.com/openai/v1"
+        )
+
         pdf_stream = io.BytesIO(file.read())
         reader = PyPDF2.PdfReader(pdf_stream)
 
