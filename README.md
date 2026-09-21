@@ -463,9 +463,7 @@ Through this project, the following concepts were explored:
 
 🎓 B.Tech Computer Science & Engineering — AI & Machine Learning
 
-🔗 GitHub: Add your GitHub profile link
-
-🔗 LinkedIn: Add your LinkedIn profile link
+🔗 GitHub: https://github.com/Agrasha29
 
 ---
 
