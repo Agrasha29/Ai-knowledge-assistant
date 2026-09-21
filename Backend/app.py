@@ -1,19 +1,23 @@
 import os
+import io
 import PyPDF2
+
 from flask import Flask, request, jsonify, send_from_directory
-from werkzeug.utils import secure_filename
 from flask_cors import CORS
 from openai import OpenAI
 from dotenv import load_dotenv
 
+
 # -----------------------------
 # Load environment variables
 # -----------------------------
-load_dotenv()  # .env file should contain GROQ_API_KEY=your_key_here
+load_dotenv()
+
 client = OpenAI(
     api_key=os.getenv("GROQ_API_KEY"),
     base_url="https://api.groq.com/openai/v1",
 )
+
 
 # -----------------------------
 # Flask setup
@@ -21,84 +25,122 @@ client = OpenAI(
 app = Flask(__name__)
 CORS(app)
 
-# -----------------------------
-# In-memory storage for uploaded PDF text
-# -----------------------------
-documents = {}
 
 # -----------------------------
 # Folder paths
 # -----------------------------
-UPLOAD_FOLDER = "../uploads"      # PDFs go here
-FRONTEND_FOLDER = "../Frontend"   # HTML goes here
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+FRONTEND_FOLDER = os.path.join(BASE_DIR, "Frontend")
+
 
 # -----------------------------
-# Extract text from PDF
+# Extract text directly from PDF
 # -----------------------------
-def extract_text_from_pdf(filepath):
+def extract_text_from_pdf(file):
     text = ""
-    with open(filepath, "rb") as file:
-        reader = PyPDF2.PdfReader(file)
-        for i, page in enumerate(reader.pages):
-            try:
-                page_text = page.extract_text()
-                if page_text:
-                    text += page_text + "\n"
-            except Exception as e:
-                print(f"Warning: failed to extract page {i}: {e}")
-                continue
+
+    reader = PyPDF2.PdfReader(file)
+
+    for i, page in enumerate(reader.pages):
+        try:
+            page_text = page.extract_text()
+
+            if page_text:
+                text += page_text + "\n"
+
+        except Exception as e:
+            print(f"Warning: failed to extract page {i}: {e}")
+            continue
+
     return text
 
+
 # -----------------------------
-# Upload PDF + Ask question endpoint
+# Upload PDF + Ask Question
 # -----------------------------
 @app.route("/upload_and_ask", methods=["POST"])
 def upload_and_ask():
-    if 'file' not in request.files:
+
+    # Check file
+    if "file" not in request.files:
         return jsonify({"error": "No file uploaded"}), 400
 
-    file = request.files['file']
-    if file.filename == '':
+    file = request.files["file"]
+
+    if file.filename == "":
         return jsonify({"error": "No file selected"}), 400
 
+    # Check question
     question = request.form.get("question")
+
     if not question:
         return jsonify({"error": "Question is required"}), 400
 
-    # Save PDF
-    filepath = os.path.join(UPLOAD_FOLDER, secure_filename(file.filename))
-    file.save(filepath)
-
-    # Extract text
-    text = extract_text_from_pdf(filepath)
-    documents[file.filename] = text
-
     try:
+
         # -----------------------------
-        # Correct Groq API call
+        # Read PDF directly into memory
+        # -----------------------------
+        pdf_bytes = io.BytesIO(file.read())
+
+        # -----------------------------
+        # Extract PDF text
+        # -----------------------------
+        text = extract_text_from_pdf(pdf_bytes)
+
+        if not text.strip():
+            return jsonify({
+                "error": "Could not extract text from the PDF."
+            }), 400
+
+        # -----------------------------
+        # Send document + question to Groq
         # -----------------------------
         response = client.responses.create(
-            model="openai/gpt-oss-20b",  # ✅ replace with a supported Groq model
-            input=f"Document:\n{text}\n\nQuestion: {question}",
+            model="openai/gpt-oss-20b",
+            input=f"""
+You are an AI Knowledge Assistant.
+
+Answer the user's question using the provided document.
+
+Document:
+{text}
+
+Question:
+{question}
+""",
             max_output_tokens=300,
         )
-        answer = response.output_text.strip()
-    except Exception as e:
-        print("Groq API error:", e)
-        return jsonify({"error": f"Groq API error: {str(e)}"}), 500
 
-    return jsonify({"answer": answer})
+        answer = response.output_text.strip()
+
+        return jsonify({
+            "answer": answer
+        })
+
+    except Exception as e:
+
+        print("Error:", e)
+
+        return jsonify({
+            "error": str(e)
+        }), 500
+
 
 # -----------------------------
-# Serve HTML frontend
+# Serve Frontend
 # -----------------------------
 @app.route("/")
 def index():
-    return send_from_directory(FRONTEND_FOLDER, "index.html")
+    return send_from_directory(
+        FRONTEND_FOLDER,
+        "index.html"
+    )
+
 
 # -----------------------------
-# Run Flask
+# Run locally
 # -----------------------------
 if __name__ == "__main__":
     app.run(debug=True)
