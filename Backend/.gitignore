@@ -1,0 +1,12 @@
+# Virtual environment (Python)
+venv/
+
+# Environment variables (API keys, secrets)
+.env
+
+
+__pycache__/
+*.pyc
+uploads/
+*.pdf
+.vscode/

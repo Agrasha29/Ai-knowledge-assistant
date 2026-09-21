@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DocBot AI</title>
+
+<style>
+
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: linear-gradient(135deg, #fbc2eb, #a6c1ee, #fddb92);
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: #333;
+    overflow: hidden;
+}
+
+/* Glass Card */
+.container {
+    background: rgba(255,255,255,0.6);
+    padding: 30px;
+    border-radius: 20px;
+    backdrop-filter: blur(15px);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+    width: 420px;
+    text-align: center;
+}
+
+/* Inputs */
+input[type="file"],
+input[type="text"] {
+    width: 100%;
+    padding: 12px;
+    margin-top: 12px;
+    border-radius: 10px;
+    border: none;
+    outline: none;
+    background: #ffffff;
+}
+
+/* Button */
+button {
+    margin-top: 15px;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #a1c4fd, #c2e9fb);
+    color: #333;
+    font-weight: bold;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.15);
+}
+
+/* Answer Box */
+pre {
+    background: rgba(255,255,255,0.7);
+    padding: 12px;
+    border-radius: 12px;
+    text-align: left;
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+/* Floating pastel circles */
+.circle {
+    position: absolute;
+    border-radius: 50%;
+    opacity: 0.4;
+    animation: float 12s infinite ease-in-out;
+}
+
+.circle:nth-child(1){
+    width:120px;
+    height:120px;
+    background:#ffd6e0;
+    top:10%;
+    left:10%;
+}
+
+.circle:nth-child(2){
+    width:150px;
+    height:150px;
+    background:#d6f5ff;
+    bottom:15%;
+    right:15%;
+}
+
+.circle:nth-child(3){
+    width:90px;
+    height:90px;
+    background:#e6d6ff;
+    bottom:40%;
+    left:25%;
+}
+
+.circle:nth-child(4){
+    width:110px;
+    height:110px;
+    background:#fff0d6;
+    top:30%;
+    right:25%;
+}
+
+@keyframes float {
+    0% { transform: translateY(0px); }
+    50% { transform: translateY(-40px); }
+    100% { transform: translateY(0px); }
+}
+
+h2{
+    margin-top:0;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="circle"></div>
+<div class="circle"></div>
+<div class="circle"></div>
+<div class="circle"></div>
+
+<div class="container">
+    <h2>📄 DocBot AI</h2>
+    <p>Upload PDF & Ask Questions</p>
+
+    <input type="file" id="file">
+    <input type="text" id="question" placeholder="Type your question here">
+
+    <button onclick="uploadAndAsk()">Ask</button>
+
+    <h3>Answer:</h3>
+    <pre id="answer"></pre>
+</div>
+
+<script>
+async function uploadAndAsk() {
+    const fileInput = document.getElementById('file');
+    const question = document.getElementById('question').value;
+
+    if(fileInput.files.length === 0) {
+        alert("Please select a PDF file!");
+        return;
+    }
+
+    if(!question) {
+        alert("Please type a question!");
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", fileInput.files[0]);
+    formData.append("question", question);
+
+    document.getElementById('answer').innerText = "Processing...";
+
+    const response = await fetch("/upload_and_ask", {
+        method: "POST",
+        body: formData
+    });
+
+    const data = await response.json();
+    document.getElementById('answer').innerText = data.answer || data.error;
+}
+</script>
+
+</body>
+</html>
